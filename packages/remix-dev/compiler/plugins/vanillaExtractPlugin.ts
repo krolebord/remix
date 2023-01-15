@@ -7,12 +7,14 @@ import {
   getSourceFromVirtualCssFile,
   transform,
 } from "@vanilla-extract/integration";
+import postcss from "postcss";
 import * as fse from "fs-extra";
 import * as esbuild from "esbuild";
 
 import type { RemixConfig } from "../../config";
 import type { CompileOptions } from "../options";
 import { loaders } from "../loaders";
+import { getPostCssPlugins } from "../utils/postcss";
 
 const pluginName = "vanilla-extract-plugin";
 const namespace = `${pluginName}-ns`;
@@ -28,7 +30,11 @@ export function vanillaExtractPlugin({
 }): esbuild.Plugin {
   return {
     name: pluginName,
-    setup(build) {
+    async setup(build) {
+      let postCssPlugins = await getPostCssPlugins({
+        rootDirectory: config.rootDirectory,
+        vanillaExtract: true,
+      });
       let { rootDirectory } = config;
 
       build.onResolve({ filter: virtualCssFileFilter }, (args) => {
@@ -43,6 +49,16 @@ export function vanillaExtractPlugin({
         async ({ path }) => {
           let { source, fileName } = await getSourceFromVirtualCssFile(path);
           let resolveDir = dirname(join(rootDirectory, fileName));
+
+          if (postCssPlugins.length > 0) {
+            let p = postcss(...postCssPlugins);
+            source = (
+              await p.process(source, {
+                from: path,
+                to: path,
+              })
+            ).css;
+          }
 
           return {
             contents: source,

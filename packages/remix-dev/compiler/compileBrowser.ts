@@ -116,7 +116,7 @@ const createEsbuildConfig = (
     config.future.unstable_cssSideEffectImports
       ? cssSideEffectImportsPlugin({ rootDirectory })
       : null,
-    cssFilePlugin({ mode, rootDirectory }),
+    cssFilePlugin({ config, mode, rootDirectory }),
     urlImportsPlugin(),
     mdxPlugin(config),
     browserRouteModulesPlugin(config, /\?browser$/),

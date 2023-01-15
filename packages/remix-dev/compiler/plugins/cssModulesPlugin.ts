@@ -5,6 +5,7 @@ import postcss from "postcss";
 import postcssModules from "postcss-modules";
 
 import type { CompileOptions } from "../options";
+import { getPostCssPlugins } from "../utils/postcss";
 
 const pluginName = "css-modules-plugin";
 const namespace = `${pluginName}-ns`;
@@ -25,6 +26,10 @@ export const cssModulesPlugin = (options: {
   return {
     name: pluginName,
     setup: async (build: PluginBuild) => {
+      let postCssPlugins = await getPostCssPlugins({
+        rootDirectory: options.rootDirectory,
+      });
+
       build.onResolve(
         { filter: cssModulesFilter, namespace: "file" },
         async (args) => {
@@ -49,6 +54,7 @@ export const cssModulesPlugin = (options: {
         let exports: Record<string, string> = {};
 
         let { css: compiledCss } = await postcss([
+          ...postCssPlugins,
           postcssModules({
             generateScopedName:
               options.mode === "production"

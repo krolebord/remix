@@ -5,6 +5,9 @@ import LRUCache from "lru-cache";
 import { parse, type ParserOptions } from "@babel/parser";
 import traverse from "@babel/traverse";
 import generate from "@babel/generator";
+import postcss from "postcss";
+
+import { getPostCssPlugins } from "../utils/postcss";
 
 const pluginName = "css-side-effects-plugin";
 const namespace = `${pluginName}-ns`;
@@ -44,6 +47,10 @@ export const cssSideEffectImportsPlugin = (options: {
   return {
     name: pluginName,
     setup: async (build) => {
+      let postCssPlugins = await getPostCssPlugins({
+        rootDirectory: options.rootDirectory,
+      });
+
       build.onLoad(
         { filter: allJsFilesFilter, namespace: "file" },
         async (args) => {
@@ -83,6 +90,19 @@ export const cssSideEffectImportsPlugin = (options: {
 
       build.onLoad({ filter: /\.css$/, namespace }, async (args) => {
         let contents = await fse.readFile(args.path, "utf8");
+
+        if (postCssPlugins.length > 0) {
+          let p = postcss(...postCssPlugins);
+          contents = (
+            await p.process(contents, {
+              from: args.path,
+              to: args.path,
+              map: {
+                inline: true,
+              },
+            })
+          ).css;
+        }
 
         return {
           contents,

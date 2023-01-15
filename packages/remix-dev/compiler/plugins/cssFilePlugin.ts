@@ -1,9 +1,12 @@
 import * as path from "path";
 import * as fse from "fs-extra";
 import esbuild from "esbuild";
+import postcss from "postcss";
 
 import invariant from "../../invariant";
+import type { RemixConfig } from "../../config";
 import type { CompileOptions } from "../options";
+import { getPostCssPlugins } from "../utils/postcss";
 
 const isExtendedLengthPath = /^\\\\\?\\/;
 
@@ -16,6 +19,7 @@ function normalizePathSlashes(p: string) {
  * and exports the url of the css file as its default export.
  */
 export function cssFilePlugin(options: {
+  config: RemixConfig;
   mode: CompileOptions["mode"];
   rootDirectory: string;
 }): esbuild.Plugin {
@@ -59,6 +63,37 @@ export function cssFilePlugin(options: {
                     };
                   }
                 });
+              },
+            },
+            {
+              name: "postcss-plugin",
+              async setup(build) {
+                let postcssPlugins = await getPostCssPlugins({
+                  rootDirectory: options.rootDirectory,
+                });
+                let p = postcss(postcssPlugins);
+
+                build.onLoad(
+                  { filter: /\.css$/, namespace: "file" },
+                  async (args) => {
+                    let source = await fse.readFile(args.path, "utf-8");
+
+                    let contents = (
+                      await p.process(source, {
+                        from: args.path,
+                        to: args.path,
+                        map: {
+                          inline: true,
+                        },
+                      })
+                    ).css;
+
+                    return {
+                      contents,
+                      loader: "css",
+                    };
+                  }
+                );
               },
             },
           ],
